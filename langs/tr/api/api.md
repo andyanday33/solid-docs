@@ -119,3 +119,59 @@ import { createEffect } from "solid-js";
 
 function createEffect<T>(fn: (v: T) => T, value?: T): void;
 ```
+
+Efektler bağımlılıklar her değiştiğinde isteğe bağlı kodu ("yan efektler") yürüterek DOM'u manuel olarak manipüle etmek için kullanılan yaygın bir yöntemdir. `createEffect` verilen fonksiyonu izleme kapsamı içerisinde çağıran yeni bir hesaplama oluşturur, ve buna bağlı olarak bağımlılıkların otomatik takibe alınmasını ve bağımlılıklar her güncellendiğinde fonksiyonların otomatik olarak yeniden yürütülmesini sağlar.
+Örneğin:
+
+```js
+const [a, setA] = createSignal(initialValue);
+
+// `a` sinyaline bağımlı olan efekt
+createEffect(() => doSideEffect(a()));
+```
+
+Efekt fonksiyonu, efekt fonksiyonunun son yürütülmesinden döndürülen değere eşit bir değer argümanıyla, ya da ilk çağrımda, `createEffect`'in isteğe bağlı ikinci argümanına eşit bir değer argümanıyla çağrılır.
+Bu, farklılıkları son hesaplanan değeri hatırlamak için ekstra kapamalar yaratmadan hesaplamanızı sağlar.
+Örneğin:
+
+```js
+createEffect((prev) => {
+  const sum = a() + b();
+  if (sum !== prev) console.log("sum changed to", sum);
+  return sum;
+}, 0);
+```
+
+Efektler öncelikli olarak reaktif sistemden okuyan ancak reaktif sisteme yazmayan yan efektler içindir:
+efektlerin içerisinde sinyal oluşturmaktan kaçınılmalıdır, çünkü bu durum ekstra işlemeler ya da hatta sonsuz efekt döngüleri tetikleyebilir.
+Onun yerine, reaktif değerlere bağımlı yeni değerler hesaplamak için [`createMemo`](#createMemo) kullanmayı tercih edin ki reaktif sistem neyin neye bağımlı olduğunu bilebilsin ve buna bağlı olarak optimizasyon yapabilsin.
+
+Efekt fonksiyonunun _ilk_ yürütümü derhal değildir;
+şimdiki işleme aşamasından sonrasında yürütülmek için sıraya alınır (örneğin [`render`](#render), [`createRoot`](#createroot), ya da [`runWithOwner`](#runwithowner) içerisine iletilmiş fonksiyonu çağırdıktan sonra.)
+Eğer ilk yürütülmenin oluşmasını beklemek istiyorsanız, [`queueMicrotask`](https://developer.mozilla.org/en-US/docs/Web/API/queueMicrotask)'ı (`queueMicrotask` tarayıcı DOM'u işlemeden önce yürütülür) ya da `await Promise.resolve()` ya da `setTimeout(..., 0)` (bu ikili tarayıcı işlemesi gerçekleştikten sonra yürütülür.) kullanın.
+
+```js
+// bu kodun bir bileşen fonksiyonu içerisinde bulunduğunu farz edin, yani işleme aşamasının bir parçası olarak.
+const [count, setCount] = createSignal(0);
+
+// bu efekt count değerini başlangıçta ve değer her değiştiğinde yazdırır.
+createEffect(() => console.log("count =", count()));
+// efekt henüz yürütülmedi.
+console.log("hello");
+setCount(1); // efekt hala yürütülmedi.
+setCount(2); // efekt hala yürütülmedi.
+
+queueMicrotask(() => {
+  // şimdi `count = 2` yazdırılacak.
+  console.log("microtask");
+  setCount(3); // anında `count = 3` yazdırıyor.
+  console.log("goodbye");
+});
+
+// --- genel çıktı: ---
+// hello
+// count = 2
+// microtask
+// count = 3
+// goodbye
+```
