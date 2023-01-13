@@ -175,3 +175,39 @@ queueMicrotask(() => {
 // count = 3
 // goodbye
 ```
+
+İlk yürütümdeki bu gecikme oldukça yararlı çünkü bunun sayesinde bileşen kapsamında tanımlanan bir efekt, JSX bileşen tarafından döndürülüp DOM'a eklendikten sonra yürütülüyor olacak. Yani, [`ref`](#ref)'ler halihazırda ayarlanmış olacak.
+Yani, bir efekti ya da diğer yan efektleri DOM'u manuel olarak manipüle etmek için kullanabilecek, temel JS kütüphanelerini çağırabileceksiniz.
+
+Aklınızda bulunsun, efektin ilk yürütülmesi hala tarayıcı DOM'u ekrana işlemeden önce gerçekleşiyor (React kütüphanesinin `useLayoutEffect` hook'u gibi).
+Eğer işlemeden sonrasına kadar beklemek istiyorsanız (örneğin işlemeyi ölçmek için), `await Promise.resolve()` (ya da `Promise.resolve().then(...)`)'i kullanabilirsiniz, ama aklınızda bulunsun, reaktif hallerin sonraki kullanımları (mesela sinyaller) efektin yeniden yürütülmesini tetiklemeyecektir, çünkü takibe alma `await` kullanan bir `async` fonksiyondan sonra mümkün olmayacaktır.
+Yani tüm bağımlılıkları promise'den önce kullanmanız gerekmekte.
+
+Eğer bir efektin ilk yürütümünden hemen sonra yürütülmesini istiyorsanız [`createRenderEffect`](#createrendereffect) ya da
+[`createComputed`](#createcomputed)'ı kullanın.
+
+Yan efektlerinizi [`onCleanup`](#oncleanup)'ı efekt fonksiyonunun _içerisinde_ çağırarak efekt fonksiyonunun çağrımları arasında temizleyebilirsiniz.
+Bu tarz bir temizlik fonksiyonu hem efekt yürütümleri arasında hem de efekt elden çıkarıldığında (örneğin efekti bulunduran bileşenin bağlantısı kesilince) çağrılır.
+Örneğin:
+
+```js
+// eventName sinyali tarafından verilen etkinliği dinamik olarak dinleyin
+createEffect(() => {
+  const event = eventName();
+  const callback = (e) => console.log(e);
+  ref.addEventListener(event, callback);
+  onCleanup(() => ref.removeEventListener(event, callback));
+});
+```
+
+## `createMemo`
+
+function createMemo<T>(
+fn: (v: T) => T,
+value?: T,
+options?: { equals?: false | ((prev: T, next: T) => boolean) }
+): () => T;
+
+```
+
+```
